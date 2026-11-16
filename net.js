@@ -181,6 +181,7 @@
     collection(path){ if(path!=='games') throw new TypeError('unsupported collection: '+path); return lobbyQuery; }
   };
 
+  window.HX = { isHost: code => !!hosted[code] };
   if(!window.claude){
     window.claude = { use: async name => name==='db' ? dbShim : null };
   }

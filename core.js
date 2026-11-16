@@ -5,22 +5,22 @@ const RES = ['wood','brick','sheep','wheat','ore'];
 const RESI = {wood:'🪵',brick:'🧱',sheep:'🐑',wheat:'🌾',ore:'🪨',gold:'⭐'};
 const RESN = {wood:'Lumber',brick:'Brick',sheep:'Wool',wheat:'Grain',ore:'Ore'};
 const TER = {
-  forest:  {res:'wood',  c:'#2e7d4f', e:'🌲'},
-  hill:    {res:'brick', c:'#bf5f3a', e:'🧱'},
-  pasture: {res:'sheep', c:'#8dbf5e', e:'🐑'},
-  field:   {res:'wheat', c:'#dcb84f', e:'🌾'},
-  mountain:{res:'ore',   c:'#8e939e', e:'⛰️'},
-  desert:  {res:null,    c:'#d8c491', e:'🏜️'},
-  gold:    {res:'gold',  c:'#e8c23f', e:'⭐'},
-  sea:     {res:null,    c:'#1d6a85', e:''}
+  forest:  {res:'wood',  c:'#1D8A4E', e:'🌲'},
+  hill:    {res:'brick', c:'#C65A2E', e:'🧱'},
+  pasture: {res:'sheep', c:'#A3CF4F', e:'🐑'},
+  field:   {res:'wheat', c:'#F2C12E', e:'🌾'},
+  mountain:{res:'ore',   c:'#94A3B8', e:'⛰️'},
+  desert:  {res:null,    c:'#E7D8A7', e:'🏜️'},
+  gold:    {res:'gold',  c:'#F5C518', e:'⭐'},
+  sea:     {res:null,    c:'#1BA2D8', e:''}
 };
 const PCOLORS = [
-  {n:'Crimson', c:'#c6433a'},
-  {n:'Cobalt',  c:'#3867c9'},
-  {n:'Amber',   c:'#d98627'},
-  {n:'Moss',    c:'#2f8f55'},
-  {n:'Violet',  c:'#8456c8'},
-  {n:'Slate',   c:'#50707e'}
+  {n:'Red',    c:'#E03C31'},
+  {n:'Blue',   c:'#2563EB'},
+  {n:'Orange', c:'#F08C21'},
+  {n:'Green',  c:'#16A34A'},
+  {n:'Purple', c:'#8B5CF6'},
+  {n:'Brown',  c:'#8D6E63'}
 ];
 const COST = {
   road:      {wood:1, brick:1},
@@ -494,7 +494,7 @@ function newGameState(opts, host){
     name: opts.name,
     created: Date.now(),
     status: 'lobby',
-    options: {map: opts.map, vp: opts.vp, maxP: opts.maxP},
+    options: {map: opts.map, vp: opts.vp, maxP: opts.maxP, timer: opts.timer||0},
     hostUid: host.uid,
     players: [newPlayer(host.uid, host.name, 0)],
     board: null,
@@ -523,5 +523,6 @@ function beginGame(st){
   st.status = 'setup';
   st.setup = {count: 0, needRoad: false, lastV: null};
   st.turn = 0;
+  st.turnStart = Date.now();
   st.log.push({t:'🏁', m:'The game begins! Place your first settlement.'});
 }

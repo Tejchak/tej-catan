@@ -144,7 +144,8 @@ function createGame(){
   if(!nick){ toast('Pick a nickname first.'); $('nick').focus(); return; }
   setNick(nick);
   const code = genCode();
-  const opts = {code, name: nameEl.value.trim() || (nick+"'s table"), map, vp, maxP: MAPS[map].maxP};
+  const timer = parseInt($('cg-timer').value,10)||0;
+  const opts = {code, name: nameEl.value.trim() || (nick+"'s table"), map, vp, maxP: MAPS[map].maxP, timer};
   const st = newGameState(opts, {uid, name: nick});
   db.doc('games/'+code).set(st).then(()=>{ location.hash = code; })
     .catch(err=>{
@@ -192,7 +193,7 @@ function hostStart(){
 function rematch(){
   const code = genCode();
   const old = S;
-  const opts = {code, name: old.name, map: old.options.map, vp: old.options.vp, maxP: old.options.maxP};
+  const opts = {code, name: old.name, map: old.options.map, vp: old.options.vp, maxP: old.options.maxP, timer: old.options.timer||0};
   const st = newGameState(opts, {uid, name: me()? me().name : myName});
   db.doc('games/'+code).set(st).then(()=>{
     save(o=>{ o.next = code; });
@@ -284,6 +285,7 @@ function clickEdge(key){
       } else {
         st.turn = seq[st.setup.count];
       }
+      st.turnStart = Date.now();
     });
     return;
   }
@@ -350,6 +352,7 @@ function rollDice(){
       st.discard = st.players.map(p=>{ const t=resTotal(p.res); return t>7 ? Math.floor(t/2) : 0; });
       st.after='main';
       st.phase = st.discard.some(n=>n>0) ? 'discard' : 'robber';
+      if(st.phase==='discard') st.turnStart = Date.now();
     } else {
       const {gains, gold} = produce(st, geom(), sum);
       st.players.forEach((p,i)=>{
@@ -359,7 +362,7 @@ function rollDice(){
       });
       st.goldPending = gold;
       st.phase = gold.some(n=>n>0) ? 'gold' : 'main';
-      if(st.phase==='gold') log(st,'⭐','Gold fields glitter — choose your resources.');
+      if(st.phase==='gold'){ st.turnStart = Date.now(); log(st,'⭐','Gold fields glitter — choose your resources.'); }
     }
   });
 }
@@ -376,7 +379,7 @@ function submitDiscard(){
     for(const r of RES){ const n=sel[r]||0; if(n>pl.res[r]) return false; pl.res[r]-=n; }
     st.discard[i]=0;
     log(st,'🗑️', pl.name+' discarded '+need+' cards.');
-    if(!st.discard.some(n=>n>0)) st.phase='robber';
+    if(!st.discard.some(n=>n>0)){ st.phase='robber'; st.turnStart = Date.now(); }
   });
 }
 
@@ -529,6 +532,7 @@ function endTurn(){
     st.turn = (st.turn+1) % st.players.length;
     st.turnCount++;
     st.phase='roll'; st.dice=null;
+    st.turnStart = Date.now();
     log(st,'➡️', st.players[st.turn].name+'\'s turn.');
   });
   UI.mode=null;
@@ -547,6 +551,7 @@ function sendChat(){
 
 function render(){
   renderToast();
+  maybeAnimateDice();
   const home=$('home'), game=$('game');
   if(!gameCode){ home.hidden=false; game.hidden=true; renderHome(); }
   else { home.hidden=true; game.hidden=false; renderGame(); }
@@ -584,6 +589,14 @@ function renderHome(){
       </div>
       <label class="fld">Victory points to win
         <select id="cg-vp">${[8,10,12,14].map(v=>`<option ${v===10?'selected':''}>${v}</option>`).join('')}</select>
+      </label>
+      <label class="fld">Turn timer
+        <select id="cg-timer">
+          <option value="0">Off — relaxed</option>
+          <option value="60">1 minute</option>
+          <option value="120" selected>2 minutes</option>
+          <option value="180">3 minutes</option>
+        </select>
       </label>
       <button class="btn primary" data-a="create">Create game</button>
       ${readOnly?'<p class="warn">You currently have view-only access to this artifact — the owner must share it with you as Contributor or Editor before you can play.</p>':''}
@@ -658,7 +671,7 @@ function renderTopbar(){
       <span class="gname">${esc(S.name)}</span>
       <button class="chip" data-a="copylink" title="Copy invite link">code ${esc(S.code)} ⧉</button>
     </div>
-    <div class="tb-mid">${dice}<span class="phase">${esc(phaseText())}</span></div>
+    <div class="tb-mid">${dice}<span id="timer" class="timer" hidden></span><span class="phase">${esc(phaseText())}</span></div>
     <div class="tb-right">
       <button class="chip" data-a="help">Rules</button>
     </div>`;
@@ -721,7 +734,7 @@ function renderBoard(){
     const rob = h.id===S.robber ? robberSvg(c) : '';
     const glow = hexMode && isLand(h.t) && h.id!==S.robber;
     return `<g ${glow?`class="hexbtn" data-a="hex" data-id="${h.id}"`:''}>
-      <polygon points="${pts}" fill="${t.c}" stroke="${isSea?'#17546b':'#1d3b2a33'}" stroke-width="${isSea?1:2.5}" ${glow?'class="glowhex"':''}/>
+      <polygon points="${pts}" fill="${t.c}" stroke="${isSea?'#1186BF':'#1d3b2a33'}" stroke-width="${isSea?1:2.5}" ${glow?'class="glowhex"':''}/>
       ${isSea?'':`<text x="${c.x}" y="${c.y-16}" class="hexemoji">${t.e}</text>`}
       ${tok}${rob}
     </g>`;
@@ -769,7 +782,7 @@ function renderBoard(){
 
   $('boardwrap').innerHTML = `
   <svg id="board" viewBox="${b.minx} ${b.miny} ${b.w} ${b.h}" role="img" aria-label="Game board">
-    <rect x="${b.minx}" y="${b.miny}" width="${b.w}" height="${b.h}" fill="#0E3444" rx="12"/>
+    <rect x="${b.minx}" y="${b.miny}" width="${b.w}" height="${b.h}" fill="#1288C7" rx="12"/>
     ${hexesSvg}${portsSvg}${roadsSvg}${buildsSvg}${legalESvg}${legalVSvg}
   </svg>`;
 }
@@ -1057,6 +1070,187 @@ document.addEventListener('keydown', e=>{
   if(e.key==='Enter' && e.target.id==='join-code'){ const c=$('join-code').value.trim().toUpperCase(); if(c) location.hash=c; }
   if(e.key==='Escape' && (UI.mode||UI.showHelp)){ UI.mode=null; UI.showHelp=false; render(); }
 });
+
+/* ---------- turn timer & auto-play ---------- */
+
+let lastForcedV = -1, lastDiceKey = null;
+
+function timerLimitMs(){ return S && S.options && S.options.timer ? S.options.timer*1000 : 0; }
+function remainingMs(){
+  const L = timerLimitMs();
+  if(!S || !L || !S.turnStart || S.status==='lobby' || S.status==='over') return null;
+  return S.turnStart + L - Date.now();
+}
+function fmtMs(ms){
+  const s = Math.max(0, Math.ceil(ms/1000));
+  return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+}
+function renderTimer(){
+  const el = $('timer');
+  if(!el) return;
+  const r = remainingMs();
+  if(r===null){ el.hidden = true; return; }
+  el.hidden = false;
+  el.textContent = '⏱ '+fmtMs(r);
+  el.classList.toggle('low', r < 15000);
+}
+function randPick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function randomBagFrom(bag, n){
+  const cards=[]; RES.forEach(r=>{ for(let k=0;k<(bag[r]||0);k++) cards.push(r); });
+  const sel={};
+  for(let k=0;k<n && cards.length;k++){
+    const j=Math.floor(Math.random()*cards.length);
+    const r=cards.splice(j,1)[0];
+    sel[r]=(sel[r]||0)+1;
+  }
+  return sel;
+}
+/* Resolve whatever the table is stuck on, colonist-style: when a player's
+   clock hits zero the game plays the obvious move for them and moves on. */
+function forcedMut(st, g){
+  if(st.status==='over' || st.status==='lobby') return false;
+  if(st.phase==='discard'){
+    st.discard.forEach((n,j)=>{
+      if(n>0){
+        const sel=randomBagFrom(st.players[j].res, n);
+        for(const r in sel) st.players[j].res[r]-=sel[r];
+        st.discard[j]=0;
+        log(st,'⏱', st.players[j].name+' ran out of time — discarded automatically.');
+      }
+    });
+    st.phase='robber';
+    st.turnStart = Date.now();
+    return;
+  }
+  if(st.phase==='gold'){
+    st.goldPending.forEach((n,j)=>{
+      if(n>0){
+        for(let k=0;k<n;k++) st.players[j].res[randPick(RES)]++;
+        st.goldPending[j]=0;
+        log(st,'⏱', st.players[j].name+' — gold picked automatically.');
+      }
+    });
+    st.phase='main';
+    return;
+  }
+  const i = st.turn;
+  if(st.status==='setup'){
+    if(!st.setup.needRoad){
+      const v = randPick(legalSetupVerts(st, g));
+      if(!v) return false;
+      st.builds[v] = {p:i, c:'s'};
+      st.setup.needRoad = true; st.setup.lastV = v;
+      const n = st.players.length;
+      if(st.setup.count >= n){
+        for(const h of g.verts[v].hexes){
+          const res = TER[g.hexById[h].t].res;
+          if(res && res!=='gold') st.players[i].res[res]++;
+        }
+      }
+      log(st,'⏱', st.players[i].name+' — settlement placed automatically.');
+    } else {
+      const o = randPick(legalSetupEdges(st, g, st.setup.lastV));
+      if(!o) return false;
+      (o.t==='road' ? st.roads : st.ships)[o.key] = i;
+      st.setup.count++; st.setup.needRoad=false; st.setup.lastV=null;
+      const n = st.players.length, seq = setupSeq(n);
+      if(st.setup.count >= 2*n){
+        st.status='play'; st.setup=null; st.turn=0; st.turnCount=1; st.phase='roll';
+        log(st,'🎲', 'Setup complete — '+st.players[0].name+' rolls first.');
+      } else st.turn = seq[st.setup.count];
+      st.turnStart = Date.now();
+    }
+    return;
+  }
+  if(st.phase==='roll'){
+    const d1=1+Math.floor(Math.random()*6), d2=1+Math.floor(Math.random()*6);
+    st.dice=[d1,d2]; const sum=d1+d2;
+    log(st,'🎲', st.players[i].name+' rolled '+sum+' ('+d1+'+'+d2+') — auto.');
+    if(sum===7){
+      st.discard = st.players.map(p=>{ const t=resTotal(p.res); return t>7 ? Math.floor(t/2) : 0; });
+      st.after='main';
+      st.phase = st.discard.some(n=>n>0) ? 'discard' : 'robber';
+      if(st.phase==='discard') st.turnStart = Date.now();
+    } else {
+      const {gains, gold} = produce(st, g, sum);
+      st.players.forEach((p,j)=>{ for(const r in gains[j]) p.res[r]+=gains[j][r]; });
+      st.goldPending = gold;
+      st.phase = gold.some(n=>n>0) ? 'gold' : 'main';
+      if(st.phase==='gold') st.turnStart = Date.now();
+    }
+    return;
+  }
+  if(st.phase==='robber' || st.phase==='steal'){
+    if(st.phase==='robber'){
+      const hs = st.board.hexes.filter(h=>isLand(h.t) && h.id!==st.robber);
+      st.robber = randPick(hs).id;
+      log(st,'⏱','Robber moved automatically.');
+    }
+    const vs = robberVictims(st, g);
+    if(vs.length) stealFromIn(st, randPick(vs));
+    st.phase = st.after;
+    return;
+  }
+  if(st.phase==='main'){
+    st.trade=null; st.freeRoads=0; st.playedDev=false;
+    st.turn = (st.turn+1) % st.players.length;
+    st.turnCount++;
+    st.phase='roll'; st.dice=null;
+    st.turnStart = Date.now();
+    log(st,'⏱', st.players[st.turn].name+"'s turn — previous one timed out.");
+    return;
+  }
+  return false;
+}
+function tick(){
+  renderTimer();
+  if(!S || !S.board || !timerLimitMs()) return;
+  const r = remainingMs();
+  if(r===null || r>0) return;
+  if(lastForcedV===S.v) return;
+  const iAmTurn = mi()===S.turn;
+  const iAmHost = typeof HX!=='undefined' && HX.isHost && HX.isHost(S.code);
+  // the active player's own client enforces at 0; the host covers for a
+  // vanished player 10 s later
+  if(iAmTurn || (iAmHost && r<=-10000)){
+    lastForcedV = S.v;
+    save(st=>forcedMut(st, geom()));
+    UI.mode=null; UI.pick=null;
+  }
+}
+setInterval(tick, 500);
+
+/* ---------- dice roll animation ---------- */
+function maybeAnimateDice(){
+  if(!S || !S.dice){ if(S) lastDiceKey = S.dice ? lastDiceKey : (S.turnCount+'-none'); return; }
+  const key = S.turnCount+'-'+S.dice[0]+'-'+S.dice[1];
+  if(lastDiceKey===null){ lastDiceKey = key; return; }  // joined mid-game: no replay
+  if(key===lastDiceKey) return;
+  lastDiceKey = key;
+  const el = $('diceanim');
+  if(!el) return;
+  const faces=['⚀','⚁','⚂','⚃','⚄','⚅'];
+  const d = el.querySelectorAll('.bigdie');
+  el.hidden = false;
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(reduced){
+    d[0].textContent = faces[S.dice[0]-1]; d[1].textContent = faces[S.dice[1]-1];
+    setTimeout(()=>{ el.hidden = true; }, 1200);
+    return;
+  }
+  let t = 0;
+  const iv = setInterval(()=>{
+    d[0].textContent = faces[Math.floor(Math.random()*6)];
+    d[1].textContent = faces[Math.floor(Math.random()*6)];
+    t += 80;
+    if(t>=640){
+      clearInterval(iv);
+      d[0].textContent = faces[S.dice[0]-1];
+      d[1].textContent = faces[S.dice[1]-1];
+      setTimeout(()=>{ el.hidden = true; }, 1000);
+    }
+  }, 80);
+}
 
 /* ---------- boot ---------- */
 const boot = ()=>{ init(); };
