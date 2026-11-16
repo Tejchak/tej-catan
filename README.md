@@ -1,8 +1,8 @@
-# ⬡ Hexhaven
+# ⬡ Tej's Catan
 
 A free, browser-based hex-settlement board game in the spirit of the classic — playable with friends over a link, no accounts, no server.
 
-**Play:** https://tejchak.github.io/hexhaven/
+**Play:** https://tejchak.github.io/tej-catan/
 
 ## How multiplayer works
 The table creator's browser hosts the game; friends connect peer-to-peer (WebRTC via PeerJS). Share the invite link or 4-letter code. Keep the host tab open while playing — if the host refreshes, the game resumes from their browser's saved state.

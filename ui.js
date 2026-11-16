@@ -556,7 +556,7 @@ function render(){
 function renderHome(){
   const el=$('home');
   if(dbMissing){
-    el.innerHTML = `<div class="hero"><h1>⬡ Hexhaven</h1>
+    el.innerHTML = `<div class="hero"><h1>⬡ Tej's Catan</h1>
       <p class="tag">Settle, trade, build — with friends.</p>
       <div class="card pad"><p>The multiplayer connection could not start. Reload the page to try again.</p></div></div>`;
     return;
@@ -565,7 +565,7 @@ function renderHome(){
   const running = lobbyGames.filter(g=>g.status!=='lobby');
   el.innerHTML = `
   <div class="hero">
-    <h1>⬡ Hexhaven</h1>
+    <h1>⬡ Tej's Catan</h1>
     <p class="tag">Settle, trade, build — the classic hex island game, with every expansion free.</p>
   </div>
   <div class="home-grid">
@@ -634,7 +634,7 @@ function phaseText(){
 
 function renderGame(){
   if(!S){
-    $('topbar').innerHTML = `<div class="tb-left"><a class="logo" href="#" data-a="homelink">⬡ Hexhaven</a></div>
+    $('topbar').innerHTML = `<div class="tb-left"><a class="logo" href="#" data-a="homelink">⬡ Tej's Catan</a></div>
       <div class="tb-mid">${loadSlow?'Still trying to reach the table…':'Finding the table…'}</div><div class="tb-right"></div>`;
     $('boardwrap').innerHTML = '<div class="loading">'+(loadSlow?'The table can\'t be reached yet — check your connection.':'Loading game '+esc(gameCode)+'…')+'</div>';
     ['players','actions','context','hand','tabs','feed'].forEach(id=>{ $(id).innerHTML=''; });
@@ -654,7 +654,7 @@ function renderTopbar(){
   const dice = S.dice ? `<span class="dice">${die(S.dice[0])}${die(S.dice[1])}<b>${S.dice[0]+S.dice[1]}</b></span>` : '';
   $('topbar').innerHTML = `
     <div class="tb-left">
-      <a class="logo" href="#" data-a="homelink">⬡ Hexhaven</a>
+      <a class="logo" href="#" data-a="homelink">⬡ Tej's Catan</a>
       <span class="gname">${esc(S.name)}</span>
       <button class="chip" data-a="copylink" title="Copy invite link">code ${esc(S.code)} ⧉</button>
     </div>
